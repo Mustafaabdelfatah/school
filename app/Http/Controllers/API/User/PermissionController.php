@@ -50,7 +50,7 @@ class PermissionController extends Controller implements HasMiddleware
     {
         $permission = Permission::create($request->validated());
 
-        return successResponse(new PermissionResource($permission), __('api.created_success'));
+        return createdResponse(new PermissionResource($permission), __('api.created_success'));
     }
 
     /**
@@ -71,7 +71,7 @@ class PermissionController extends Controller implements HasMiddleware
     {
         $permission->update($request->validated());
 
-        return successResponse(new PermissionResource($permission->refresh()), __('api.updated_success'));
+        return updatedResponse(new PermissionResource($permission->refresh()), __('api.updated_success'));
     }
 
     /**
@@ -82,13 +82,13 @@ class PermissionController extends Controller implements HasMiddleware
     {
         $permission->delete();
 
-        return successResponse(msg: __('api.deleted_success'));
+        return deletedResponse(__('api.deleted_success'));
     }
 
     public function destroyAll(DeleteAllRequest $request): JsonResponse
     {
         Permission::whereIn('id', $request->ids)->delete();
 
-        return successResponse(msg: __('api.deleted_success'));
+        return deletedResponse(__('api.deleted_success'));
     }
 }

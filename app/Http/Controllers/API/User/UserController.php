@@ -26,10 +26,8 @@ class UserController extends Controller
      */
     public function index(PageRequest $request): JsonResponse
     {
-        Gate::authorize('view', User::class);
-
         $query = app(Pipeline::class)
-            ->send(User::with('roles')->related())
+            ->send(User::with('roles'))
             ->through([UserFilter::class, OrderByFilter::class])
             ->thenReturn();
 
@@ -42,13 +40,11 @@ class UserController extends Controller
      */
     public function store(UserRequest $request): JsonResponse
     {
-        Gate::authorize('create', User::class);
-
         return DB::transaction(function () use ($request) {
             $user = User::create($this->prepareData($request));
             $this->syncRelations($user, $request);
 
-            return successResponse(new UserResource($user->load('roles')), __('api.created_success'));
+            return createdResponse(new UserResource($user->load('roles')), __('api.created_success'));
         });
     }
 
@@ -58,8 +54,6 @@ class UserController extends Controller
      */
     public function show(User $user): JsonResponse
     {
-        Gate::authorize('view', $user);
-
         return successResponse(new UserResource($user->load('roles')));
     }
 
@@ -70,13 +64,11 @@ class UserController extends Controller
      */
     public function update(UserRequest $request, User $user): JsonResponse
     {
-        Gate::authorize('update', $user);
-
         return DB::transaction(function () use ($user, $request) {
             $user->update($this->prepareData($request));
             $this->syncRelations($user, $request);
 
-            return successResponse(new UserResource($user->refresh()->load('roles')), __('api.updated_success'));
+            return updatedResponse(new UserResource($user->refresh()->load('roles')), __('api.updated_success'));
         });
     }
 
@@ -86,65 +78,12 @@ class UserController extends Controller
      */
     public function destroy(User $user): JsonResponse
     {
-        Gate::authorize('delete', $user);
-
         UploadService::delete($user->avatar);
         $user->delete();
 
-        return successResponse(msg: __('api.deleted_success'));
+        return deletedResponse(__('api.deleted_success'));
     }
 
-    /**
-     * @param DeleteAllRequest $request
-     * @return JsonResponse
-     */
-    public function destroyAll(DeleteAllRequest $request): JsonResponse
-    {
-        Gate::authorize('delete', User::class);
-
-        User::whereIn('id', $request->ids)->delete();
-
-        return successResponse(msg: __('api.deleted_success'));
-    }
-
-    /**
-     * @param int $id
-     * @return JsonResponse
-     */
-
-    public function restore(int $id): JsonResponse
-    {
-        Gate::authorize('restore', User::class);
-
-        User::onlyTrashed()->findOrFail($id)->restore();
-
-        return successResponse(msg: __('api.restored_success'));
-    }
-
-    /**
-     * @param int $id
-     * @return JsonResponse
-     */
-    public function forceDelete(int $id): JsonResponse
-    {
-        Gate::authorize('delete', User::class);
-
-        User::onlyTrashed()->findOrFail($id)->forceDelete();
-
-        return successResponse(msg: __('api.deleted_success'));
-    }
-
-    /**
-     * @param User $user
-     * @return JsonResponse
-     */
-    public function changeStatus(User $user): JsonResponse
-    {
-        $user->is_active = !$user->is_active;
-        $user->save();
-
-        return successResponse(msg: __('api.updated_success'));
-    }
 
     /*
     |--------------------------------------------------------------------------
@@ -160,7 +99,6 @@ class UserController extends Controller
     {
         when($request->filled('roles'), static fn() => $user->syncRoles(Role::whereId($request->roles)->pluck('name')));
         when($request->filled('permissions'), static fn() => $user->syncPermissions($request->permissions));
-        when($request->filled('locations'), static fn() => $user->locations()->sync($request->locations));
     }
 
     /**
@@ -168,7 +106,7 @@ class UserController extends Controller
      */
     private function prepareData(UserRequest $request): array
     {
-        $data = Arr::except($request->validated(), ['avatar', 'permissions', 'roles', 'locations']);
+        $data = Arr::except($request->validated(), ['avatar', 'permissions', 'roles']);
         $data['avatar'] = UploadService::store($request->avatar, 'users');
 
         return $data;

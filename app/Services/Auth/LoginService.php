@@ -4,30 +4,34 @@ namespace App\Services\Auth;
 
 use App\Exceptions\InactiveUserException;
 use App\Exceptions\InvalidEmailAndPasswordCombinationException;
-use App\Models\User;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Http\Request;
+use Illuminate\Http\Response;
 use Illuminate\Support\Facades\Hash;
-use LdapRecord\Auth\PasswordRequiredException;
-use LdapRecord\Auth\UsernameRequiredException;
-use LdapRecord\Models\ActiveDirectory\User as ActiveDirectoryLdapUser;
-use LdapRecord\Models\Attributes\Guid;
-use LdapRecord\Models\OpenLDAP\User as OpenLdapUser;
 use Symfony\Component\HttpFoundation\Response as ResponseAlias;
+use function __;
 
-class LoginService extends BaseAuthService
+class LoginService
 {
-    /**
-     * @param array|null $data
-     * @return array
-     * @throws InactiveUserException
-     * @throws InvalidEmailAndPasswordCombinationException
-     */
-    public function attempt(?array $data): array
-    {
-        $user = $this->attemptDefaultLogin($data);
+    private string $model;
 
-        if (!$user->is_active) {
-            throw new InactiveUserException(__('api.account_not_active'), ResponseAlias::HTTP_FORBIDDEN);
+    private string $guard;
+
+    /**
+     * @throws InvalidEmailAndPasswordCombinationException
+     * @throws InactiveUserException
+     */
+    public function attempt(Request $request): array
+    {
+        $user = $this->getModel()
+            ->query()
+            ->where('email', $request->email)
+            ->first();
+
+        if (!$user || !Hash::check($request->password, $user->password)) {
+            throw new InvalidEmailAndPasswordCombinationException(__('api.invalid_email_and_password'), ResponseAlias::HTTP_UNAUTHORIZED);
         }
+
 
         $this->setLastLogin($user);
 
@@ -38,22 +42,39 @@ class LoginService extends BaseAuthService
     }
 
     /**
-     * @param $data
-     * @return mixed
-     * @throws InvalidEmailAndPasswordCombinationException
+     * @param String $model
+     * @return $this
      */
-    public function attemptDefaultLogin($data): mixed
+    public function setModel(string $model): self
     {
-        $user = $this->getModel()
-            ->query()
-            ->where('email', $data['email'])
-            ->first();
+        $this->model = $model;
+        return $this;
+    }
 
-        if (!$user || !Hash::check(@$data['password'], $user->password)) {
-            throw new InvalidEmailAndPasswordCombinationException(__('api.invalid_email_and_password'), ResponseAlias::HTTP_NOT_ACCEPTABLE);
-        }
+    /**
+     * @return Model
+     */
+    public function getModel(): Model
+    {
+        return new $this->model();
+    }
 
-        return $user;
+    /**
+     * @param String $guard
+     * @return $this
+     */
+    public function setGuard(string $guard): self
+    {
+        $this->guard = $guard;
+        return $this;
+    }
+
+    /**
+     * @return String
+     */
+    public function getGuard(): string
+    {
+        return $this->guard;
     }
 
     /**
@@ -67,6 +88,4 @@ class LoginService extends BaseAuthService
 
         return true;
     }
-
-
 }

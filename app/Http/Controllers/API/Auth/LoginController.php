@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\API\Auth;
 
+use App\Exceptions\InactiveUserException;
 use App\Exceptions\InvalidEmailAndPasswordCombinationException;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Auth\LoginRequest;
@@ -12,7 +13,6 @@ use Illuminate\Http\JsonResponse;
 
 class LoginController extends Controller
 {
-
     /**
      * @var LoginService $loginService
      */
@@ -33,12 +33,18 @@ class LoginController extends Controller
      */
     public function login(LoginRequest $request): JsonResponse
     {
-        $user = $this->loginService
-            ->setGuard("api")
-            ->setModel(User::class)
-            ->attempt($request);
+        try {
+            $user = $this->loginService
+                ->setGuard("api")
+                ->setModel(User::class)
+                ->attempt($request);
 
-        return successResponse(new LoginResource($user['user'], $user['token']), __('api.login_success'));
+            return successResponse(new LoginResource($user['user'], $user['token']), __('api.login_success'));
+        } catch (InvalidEmailAndPasswordCombinationException $e) {
+            return unauthorizedResponse(__('api.invalid_email_and_password'));
+        } catch (InactiveUserException $e) {
+            return forbiddenResponse(__('api.account_not_active'));
+        }
     }
 
     /**
@@ -46,8 +52,11 @@ class LoginController extends Controller
      */
     public function logout(): JsonResponse
     {
-        auth()->user()->tokens()->where('id', auth()->user()->currentAccessToken()->id)->delete();
+        auth()->user()
+            ->tokens()
+            ->where('id', auth()->user()->currentAccessToken()->id)
+            ->delete();
 
-        return successResponse(msg: trans('api.user_logged_out'));
+        return successResponse(null, __('api.user_logged_out'));
     }
 }

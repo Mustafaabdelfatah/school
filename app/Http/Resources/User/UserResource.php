@@ -2,12 +2,13 @@
 
 namespace App\Http\Resources\User;
 
+use Illuminate\Http\Request;
+use App\Enum\User\UserTypeEnum;
 use App\Enum\User\UserGenderEnum;
+use Illuminate\Http\Resources\Json\JsonResource;
 use App\Http\Resources\DataEntry\CountryResource;
 use App\Http\Resources\Global\Other\BasicResource;
 use App\Http\Resources\Global\Other\BasicUserResource;
-use Illuminate\Http\Request;
-use Illuminate\Http\Resources\Json\JsonResource;
 
 class UserResource extends JsonResource
 {
@@ -19,14 +20,12 @@ class UserResource extends JsonResource
             'email' => $this->email,
             'phone_code' => $this->phone_code,
             'phone' => $this->phone,
-            'gender' => $this->gender,
-            'display_gender' => UserGenderEnum::resolve($this->gender),
+            'type' => $this->type,
+            'display_type' => UserTypeEnum::resolve($this->type),
             'is_active' => $this->is_active,
             'avatar' => $this->avatar,
             'roles' => $this->whenLoaded('roles', fn() => RoleResource::collection($this->roles), []),
             'creator' => $this->whenLoaded('creator', fn() => new BasicUserResource($this->creator), ['id' => $this->created_by]),
-            'locations' => $this->whenLoaded('locations', fn() => BasicResource::collection($this->locations), []),
-            'nationality' => $this->whenLoaded('nationality', fn() => new CountryResource($this->nationality), ['id' => $this->nationality_id]),
             'created_at' => $this->created_at,
         ];
     }
